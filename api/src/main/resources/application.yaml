@@ -1,3 +1,58 @@
+# Server
+server:
+  port: ${SERVER_PORT:8080}
+
+# Application
 spring:
   application:
-    name: api
+    name: knowledge-lab
+
+  # MongoDB
+  data:
+    mongodb:
+      auto-index-creation: true
+
+    # Redis
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 1
+          max-wait: 1000ms
+  web:
+    error:
+      include-message: always
+      include-binding-errors: always
+  mongodb:
+    uri: ${MONGODB_URI}
+    database: ${MONGODB_DATABASE:appdb}
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET}                                         # min 256-bit base64 string
+  access-token-expiry-ms: ${JWT_ACCESS_EXPIRY_MS:900000}        # 15 min
+  refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}   # 7 days
+  issuer: ${JWT_ISSUER:springboot-auth}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# Logging
+logging:
+  level:
+    com.app: ${LOG_LEVEL:INFO}
+    org.springframework.security: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
