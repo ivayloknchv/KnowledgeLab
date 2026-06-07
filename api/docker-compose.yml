@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    container_name: springboot-auth
+    container_name: knowledge-lab-api
     restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8080}:8080"

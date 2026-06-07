@@ -20,12 +20,12 @@ configurations {
     }
 }
 
-repositories {
-    mavenCentral()
-}
-
 ext {
     jjwtVersion = '0.13.0'
+}
+
+repositories {
+    mavenCentral()
 }
 
 dependencies {
@@ -42,8 +42,7 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 
     // Redis
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-    implementation 'io.lettuce:lettuce-core'
+    implementation "org.springframework.boot:spring-boot-starter-data-redis"
 
     // JWT
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
