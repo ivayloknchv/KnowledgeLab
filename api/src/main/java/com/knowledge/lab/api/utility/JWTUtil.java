@@ -2,6 +2,7 @@ package com.knowledge.lab.api.utility;
 
 import com.knowledge.lab.api.config.JWTConfig;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -54,7 +55,11 @@ public class JWTUtil {
     }
 
     public boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        try {
+            return extractExpiration(token).before(new Date());
+        } catch (ExpiredJwtException e) {
+            return true;
+        }
     }
 
     public String extractEmail(String token) {
@@ -66,8 +71,7 @@ public class JWTUtil {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
+        return claimsResolver.apply(extractAllClaims(token));
     }
 
     private Claims extractAllClaims(String token) {
