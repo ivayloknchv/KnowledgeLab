@@ -16,8 +16,19 @@ services:
       # These override .env for service discovery inside Compose network
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      ELASTICSEARCH_URI: http://elasticsearch:9200
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # Blank out ES credentials — the local ES node runs with xpack.security.enabled=false.
+      # Sending an Authorization header to a security-disabled node returns HTTP 400 with
+      # no body ("Expecting a response body, but none was sent") and prevents startup.
+      ELASTICSEARCH_USERNAME: ""
+      ELASTICSEARCH_PASSWORD: ""
     depends_on:
       redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - app-network
@@ -26,7 +37,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   # Redis
   redis:
@@ -52,6 +63,77 @@ services:
       timeout: 5s
       retries: 5
 
+  # Kafka (KRaft mode — no Zookeeper)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"              # Remove in production; expose only inside app-network
+    environment:
+      # ── KRaft identity ──────────────────────────────────────────────────────
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller          # combined broker+controller (single-node)
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"          # fixed 22-char base64 UUID for deterministic restarts
+
+      # ── Listeners ───────────────────────────────────────────────────────────
+      # CONTROLLER  — used only for KRaft Raft consensus (inter-broker/controller)
+      # PLAINTEXT   — internal Docker network (app → kafka)
+      # PLAINTEXT_HOST — external access from the Docker host (localhost:9092)
+      KAFKA_LISTENERS: CONTROLLER://0.0.0.0:29093,PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"  # nodeId@host:controllerPort
+
+      # ── Topic / replication defaults ─────────────────────────────────────────
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"         # topics are created by the app via AdminClient
+
+      # ── Retention ───────────────────────────────────────────────────────────
+      KAFKA_LOG_RETENTION_HOURS: 168                   # 7 days
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ElasticSearch 9 — required by Spring Data Elasticsearch 6.0 (Spring Boot 4.x)
+  # Spring Boot 4.x → Spring Data Elasticsearch 6.x → elasticsearch-java 9.x client.
+  # The ES9 Java client uses the ES9 wire protocol and is NOT back-compatible with ES 8.x.
+  # Running ES 8.x causes a 400 "Expecting a response body, but none was sent" on startup.
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.1
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false         # Disable auth for local dev (enable in prod)
+      - xpack.security.http.ssl.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"                           # Remove in production
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   # Redis Insight (Dev only)
   redis-insight:
     image: redis/redisinsight:latest
@@ -69,6 +151,11 @@ services:
 volumes:
   redis-data:
     driver: local
+  es-data:
+    driver: local
+  kafka-data:
+    driver: local
+  # zookeeper-data and zookeeper-logs volumes removed (KRaft migration)
 
 networks:
   app-network:

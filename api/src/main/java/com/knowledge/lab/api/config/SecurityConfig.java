@@ -35,7 +35,15 @@ public class SecurityConfig {
     private final ObjectMapper              objectMapper;
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/**",
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/shelves",
+            "/api/shelves/system",
+            "/api/shelves/{id}",
+            "/api/contents/{id}",
+            "/api/contents/shelf/**",
+            "/api/search",
+            "/api/search/**",
             "/actuator/health",
             "/actuator/info"
     };

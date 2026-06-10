@@ -53,6 +53,12 @@ dependencies {
     // MongoDB
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
 
+    // Elasticsearch — Spring Data Elasticsearch (includes the Java client)
+    implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
+    // Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+
     // Config
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

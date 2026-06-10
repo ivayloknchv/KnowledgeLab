@@ -7,6 +7,16 @@ spring:
   application:
     name: knowledge-lab
 
+  # Elasticsearch client — Spring Boot 4 / Spring Data Elasticsearch 6
+  # Client connection properties live under spring.elasticsearch (NOT spring.data.elasticsearch).
+  # spring.data.elasticsearch only covers repository/store-layer settings.
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URI:http://localhost:9200}
+    username: ${ELASTICSEARCH_USERNAME:}
+    password: ${ELASTICSEARCH_PASSWORD:}
+    connection-timeout: 30s
+    socket-timeout: 30s
+
   # MongoDB
   data:
     mongodb:
@@ -24,6 +34,15 @@ spring:
           max-idle: 5
           min-idle: 1
           max-wait: 1000ms
+
+    # Elasticsearch repository layer
+    elasticsearch:
+      repositories:
+        enabled: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
   web:
     error:
       include-message: always
@@ -39,11 +58,38 @@ jwt:
   refresh-token-expiry-ms: ${JWT_REFRESH_EXPIRY_MS:604800000}   # 7 days
   issuer: ${JWT_ISSUER:knowledge-lab}
 
+# Kafka
+kafka:
+  topics:
+    annotation-events:      ${KAFKA_TOPIC_ANNOTATION_EVENTS:annotation-events}
+    annotation-events-dlt:  ${KAFKA_TOPIC_ANNOTATION_EVENTS_DLT:annotation-events.DLT}
+    partitions:             ${KAFKA_TOPIC_PARTITIONS:3}
+    replication-factor:     ${KAFKA_REPLICATION_FACTOR:1}
+  producer:
+    retries:           3
+    acks:              all
+    linger-ms:         5
+    batch-size:        16384
+    compression-type:  snappy
+  consumer:
+    group-id:          ${KAFKA_CONSUMER_GROUP_ID:knowledge-lab-annotation-group}
+    concurrency:       3
+    max-poll-records:  50
+    poll-timeout-ms:   3000
+
+# CORS
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
 # Actuator
 management:
   health:
     mongodb:
       enabled: false
+    elasticsearch:
+      enabled: true
+    kafka:
+      enabled: true
   endpoints:
     web:
       exposure:
@@ -59,5 +105,8 @@ logging:
   level:
     com.app: ${LOG_LEVEL:INFO}
     org.springframework.security: WARN
+    org.springframework.data.elasticsearch: WARN
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
